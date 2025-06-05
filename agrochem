@@ -1,0 +1,131 @@
+def load_data(file_path: str, compound_column: str = "Compound") -> Optional[pd.DataFrame]:
+    """
+    Load the database from a CSV file.
+    
+    Args:
+        file_path: Path to the CSV file
+        compound_column: Name of the column containing compound names
+    
+    Returns:
+        DataFrame if successful, None if error occurs
+    """
+    try:
+        df = pd.read_csv(file_path)
+        if compound_column not in df.columns:
+            print(f"Error: Column '{compound_column}' not found in the CSV file.")
+            return None
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        return None
+    except Exception as e:
+        print(f"Error loading data: {str(e)}")
+        return None
+
+def filter_toxins(df: pd.DataFrame, toxins: List[str], compound_column: str = "Compound") -> pd.DataFrame:
+    """
+    Filter the DataFrame to include only rows where the compound is in the toxins list.
+    
+    Args:
+        df: Input DataFrame
+        toxins: List of toxins to filter
+        compound_column: Name of the column containing compound names
+    
+    Returns:
+        Filtered DataFrame
+    """
+    return df[df[compound_column].str.strip().str.lower().isin([t.lower() for t in toxins])]
+
+def summarize_pesticide_concentrations(df: pd.DataFrame, compound_column: str = "Compound", 
+                                      concentration_column: str = "Concentration") -> pd.DataFrame:
+    """
+    Summarize concentration statistics for pesticides in the filtered DataFrame.
+    
+    Args:
+        df: Filtered DataFrame containing pesticide data
+        compound_column: Name of the column containing compound names
+        concentration_column: Name of the column containing concentration values
+    
+    Returns:
+        DataFrame with summary statistics (mean, median, max, min, count) for each pesticide
+    """
+    if concentration_column not in df.columns:
+        print(f"Warning: Concentration column '{concentration_column}' not found. Skipping concentration summary.")
+        return pd.DataFrame()
+    
+    # Filter for pesticides only
+    pesticide_df = df[df[compound_column].str.strip().str.lower().isin([t.lower() for t in pesticides])]
+    
+    if pesticide_df.empty:
+        print("No pesticide data found for concentration summary.")
+        return pd.DataFrame()
+    
+    # Group by compound and calculate statistics
+    summary = pesticide_df.groupby(compound_column)[concentration_column].agg(
+        ['mean', 'median', 'max', 'min', 'count']
+    ).reset_index()
+    
+    # Round numerical values for readability
+    summary[['mean', 'median', 'max', 'min']] = summary[['mean', 'median', 'max', 'min']].round(4)
+    
+    return summary
+
+def save_results(df: pd.DataFrame, output_path: str) -> bool:
+    """
+    Save the filtered DataFrame to a CSV file.
+    
+    Args:
+        df: DataFrame to save
+        output_path: Path to save the CSV file
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Results saved to '{output_path}'")
+        return True
+    except Exception as e:
+        print(f"Error saving results: {str(e)}")
+        return False
+
+def main():
+    # Command-line arguments or default values
+    input_file = sys.argv[1] if len(sys.argv) > 1 else "database.csv"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "filtered_toxins.csv"
+    compound_column = sys.argv[3] if len(sys.argv) > 3 else "Compound"
+    concentration_column = sys.argv[4] if len(sys.argv) > 4 else "Concentration"
+
+    # Load data
+    df = load_data(input_file, compound_column)
+    if df is None:
+        sys.exit(1)
+
+    # Filter for toxins
+    filtered_df = filter_toxins(df, all_toxins, compound_column)
+    
+    if filtered_df.empty:
+        print("No matching toxins found in the database.")
+        sys.exit(0)
+    
+    # Summarize pesticide concentrations
+    concentration_summary = summarize_pesticide_concentrations(
+        filtered_df, compound_column, concentration_column
+    )
+    
+    if not concentration_summary.empty:
+        summary_output = output_file.replace(".csv", "_pesticide_summary.csv")
+        save_results(concentration_summary, summary_output)
+        print(f"Pesticide concentration summary:\n{concentration_summary}")
+    
+    # Save filtered results
+    if not save_results(filtered_df, output_file):
+        sys.exit(1)
+    
+    print(f"Found {len(filtered_df)} records matching the toxin list.")
+
+if __name__ == "__main__":
+    main()

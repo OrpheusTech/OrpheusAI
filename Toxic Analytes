@@ -1,0 +1,139 @@
+-- Volatile Organic Compounds (VOCs)
+vocs = [
+    "Benzene", "Toluene", "Ethylbenzene", "m,p-Xylenes", "o-Xylene", "Xylenes, Total",
+    "Vinyl Chloride", "Carbon Tetrachloride", "Chloroform", "1,2-Dichloroethane",
+    "1,1-Dichloroethane", "1,1,1-Trichloroethane", "1,1,2-Trichloroethane",
+    "Trichloroethene", "Tetrachloroethene", "Methylene chloride", "Chloromethane",
+    "Bromomethane", "Dichlorodifluoromethane (CFC 12)", "Trichlorofluoromethane"
+]
+
+-- # Polycyclic Aromatic Hydrocarbons (PAHs)
+pahs = [
+    "Benzo(a)pyrene", "Benzo(k)fluoranthene", "Benzo(b)fluoranthene", "Benzo(g,h,i)perylene",
+    "Chrysene", "Anthracene", "Phenanthrene", "Pyrene", "Fluoranthene",
+    "Acenaphthene", "Acenaphthylene", "1-Methylnaphthalene", "2-Methylnaphthalene",
+    "Naphthalene", "Fluorene", "Indeno(1,2,3-cd)pyrene", "Benzo(a)anthracene"
+]
+
+-- # Phthalates & Plasticizers
+phthalates = [
+    "Diethyl phthalate", "Di-n-octyl phthalate", "Di-n-butyl phthalate",
+    "Bis(2-ethylhexyl)phthalate", "Dimethyl phthalate", "Butyl benzyl phthalate"
+]
+
+-- # PFAS (Per- and Polyfluoroalkyl Substances)
+pfas = [
+    "Perfluorooctanoic Acid (PFOA)", "Perfluorooctanesulfonic Acid (PFOS)", "Perfluorononanoic Acid (PFNA)",
+    "Perfluorohexanoic Acid (PFHxA)", "Perfluorohexanesulfonic Acid (PFHxS)", "Perfluorobutanesulfonic Acid (PFBS)",
+    "Perfluorobutanoic Acid (PFBA)", "HFPO-DA"
+]
+
+-- # Dioxins and Furans (PCDDs/PCDFs)
+dioxins_furans = [
+    "2,3,7,8-TCDD", "1,2,3,7,8-PeCDD", "1,2,3,4,7,8-HxCDD", "1,2,3,6,7,8-HxCDD", "1,2,3,7,8,9-HxCDD",
+    "1,2,3,4,6,7,8-HpCDD", "OCDD", "Total HxCDD", "Total HpCDD", "Total TCDD",
+    "1,2,3,4,7,8-HxCDF", "1,2,3,6,7,8-HxCDF", "1,2,3,7,8,9-HxCDF", "2,3,7,8-TCDF",
+    "1,2,3,7,8-PeCDF", "2,3,4,7,8-PeCDF", "2,3,4,6,7,8-HxCDF", "OCDF", "Total HxCDF",
+    "Total HpCDF", "Total PeCDF", "Total PeCDD", "Total TCDD TEQ - 2005 WHO (ND =  MRL)"
+]
+
+-- # Nitro/Chlorinated Aromatics & Pesticides
+nitro_chloro = [
+    "2,4-Dinitrophenol", "2,4-Dinitrotoluene", "4-Nitrophenol", "2-Nitrophenol", "4-Nitroaniline",
+    "2,6-Dinitrotoluene", "2-Nitroaniline", "4-Chloroaniline", "Atrazine", "2,4,5-Trichlorophenol",
+    "2,4,6-Trichlorophenol", "2,4-Dimethylphenol", "2-Chlorophenol", "4-Chloro-3-methylphenol"
+]
+
+-- #Other Notable Toxic Compounds
+other_toxic = [
+    "Hexachlorobenzene", "Phenol", "4-METHYLPHENOL (P-CRESOL)", "3 & 4 Methylphenol",
+    "1,4-Dioxane", "Isophorone", "Styrene", "N-Nitrosodiphenylamine", "N-Nitrosodi-n-propylamine",
+    "Hexachlorocyclopentadiene", "Hexachloroethane", "Caprolactam", "Benzaldehyde", "1,2,3-Trichlorobenzene"
+]
+
+def load_data(file_path: str, compound_column: str = "Compound") -> Optional[pd.DataFrame]:
+    """
+    Load the database from a CSV file.
+    
+    Args:
+        file_path: Path to the CSV file
+        compound_column: Name of the column containing compound names
+    
+    Returns:
+        DataFrame if successful, None if error occurs
+    """
+    try:
+        df = pd.read_csv(file_path)
+        if compound_column not in df.columns:
+            print(f"Error: Column '{compound_column}' not found in the CSV file.")
+            return None
+        return df
+    except FileNotFoundError:
+        print(f"Error: File '{file_path}' not found.")
+        return None
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        return None
+    except Exception as e:
+        print(f"Error loading data: {str(e)}")
+        return None
+
+def filter_toxins(df: pd.DataFrame, toxins: List[str], compound_column: str = "Compound") -> pd.DataFrame:
+    """
+    Filter the DataFrame to include only rows where the compound is in the toxins list.
+    
+    Args:
+        df: Input DataFrame
+        toxins: List of toxins to filter
+        compound_column: Name of the column containing compound names
+    
+    Returns:
+        Filtered DataFrame
+    """
+    return df[df[compound_column].str.strip().str.lower().isin([t.lower() for t in toxins])]
+
+def save_results(df: pd.DataFrame, output_path: str) -> bool:
+    """
+    Save the filtered DataFrame to a CSV file.
+    
+    Args:
+        df: DataFrame to save
+        output_path: Path to save the CSV file
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        df.to_csv(output_path, index=False)
+        print(f"Results saved to '{output_path}'")
+        return True
+    except Exception as e:
+        print(f"Error saving results: {str(e)}")
+        return False
+
+def main():
+    # Command-line arguments or default values
+    input_file = sys.argv[1] if len(sys.argv) > 1 else "database.csv"
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "filtered_toxins.csv"
+    compound_column = sys.argv[3] if len(sys.argv) > 3 else "Compound"
+
+    # Load data
+    df = load_data(input_file, compound_column)
+    if df is None:
+        sys.exit(1)
+
+    # Filter for toxins
+    filtered_df = filter_toxins(df, all_toxins, compound_column)
+    
+    if filtered_df.empty:
+        print("No matching toxins found in the database.")
+        sys.exit(0)
+    
+    # Save results
+    if not save_results(filtered_df, output_file):
+        sys.exit(1)
+    
+    print(f"Found {len(filtered_df)} records matching the toxin list.")
+
+if __name__ == "__main__":
+    main()
